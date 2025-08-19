@@ -1,69 +1,40 @@
-# Mood Food - Recipe Finder
+# Mood Recipe Finder
 
-A simple web application that helps users find Indian and Italian recipes based on their current mood. The app features a clean, food-themed interface with a focus on user experience.
+Find the perfect Indian or Italian recipe based on your mood!
 
-## Features
+## 🎮 New Feature: Cows & Bulls Game
 
-- Select from different moods (Happy, Sad, Stressed, Energetic, Lazy, Romantic)
-- View recipes tailored to each mood
-- Filter recipes by Indian and Italian cuisines
-- Detailed recipe pages with ingredients and instructions
-- Responsive design for all devices
+We've added a fun logic game to the app! Play the classic Cows & Bulls number guessing game.
 
-## Technical Stack
+### How to Play:
+- **Bulls**: Correct digit in correct position
+- **Cows**: Correct digit in wrong position
+- Guess the 4-digit number with unique digits
+- Use hints strategically (3 available per game)
 
-- Next.js (React framework)
+### Access the Game:
+- Navigate to "🎮 Cows & Bulls" in the main menu
+- Or visit `/cows-and-bulls` directly
+
+## 🚀 Getting Started
+
+1. Install dependencies: `npm install`
+2. Run development server: `npm run dev`
+3. Open [http://localhost:3000](http://localhost:3000)
+
+## 🎯 Features
+
+- Mood-based recipe recommendations
+- Indian and Italian cuisine
+- Interactive mood selection
+- Responsive design
+- **NEW**: Cows & Bulls logic game
+
+## 🛠️ Tech Stack
+
+- Next.js 14
 - TypeScript
-- Tailwind CSS for styling
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js (v14 or newer)
-- npm or yarn
-
-### Installation
-
-1. Clone the repository
-```bash
-git clone <repository-url>
-cd recipe-mood-finder
-```
-
-2. Install dependencies
-```bash
-npm install
-# or
-yarn install
-```
-
-3. Run the development server
-```bash
-npm run dev
-# or
-yarn dev
-```
-
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
-
-## Project Structure
-
-- `src/app` - Next.js pages and layouts
-- `src/components` - Reusable React components
-- `src/data` - Recipe and mood data
-- `public/images` - Recipe images
-
-## Customization
-
-You can easily customize the application by:
-
-1. Adding new recipes in `src/data/recipes.ts`
-2. Adding new moods or editing existing ones
-3. Customizing the styling via Tailwind classes or in `src/app/globals.css`
-
-## License
-
-This project is licensed under the MIT License.
+- Tailwind CSS
+- React Hooks
 
  

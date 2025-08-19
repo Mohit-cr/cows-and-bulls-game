@@ -1,40 +1,52 @@
-# Mood Recipe Finder
+# 🐄 Cows & Bulls Game
 
-Find the perfect Indian or Italian recipe based on your mood!
+A standalone, interactive logic game built with Next.js, TypeScript, and Tailwind CSS.
 
-## 🎮 New Feature: Cows & Bulls Game
+## 🎮 **Game Features**
 
-We've added a fun logic game to the app! Play the classic Cows & Bulls number guessing game.
+### **Core Gameplay**
+- **Multiple Difficulty Levels**: 2, 3, or 4 digits
+- **Interactive Input**: Type numbers directly with keyboard
+- **Smart Feedback**: Bulls (correct position) and Cows (wrong position)
+- **Hint System**: Strategic hints to help players
 
-### How to Play:
-- **Bulls**: Correct digit in correct position
-- **Cows**: Correct digit in wrong position
-- Guess the 4-digit number with unique digits
-- Use hints strategically (3 available per game)
+### **Enhanced User Experience**
+- **Keyboard Support**: Direct number input (0-9, Enter, Backspace)
+- **Manual Digit Marking**: Red (not needed), Yellow (possibly), Green (definitely needed)
+- **Working Space**: Strategic planning area for players
+- **Responsive Design**: Works perfectly on all devices
 
-### Access the Game:
-- Navigate to "🎮 Cows & Bulls" in the main menu
-- Or visit `/cows-and-bulls` directly
+### **Scoring & Competition**
+- **Multiplayer Support**: Track scores for multiple players
+- **Performance Metrics**: Best attempts, average time, total wins
+- **Persistent Storage**: Scores saved in browser
 
-## 🚀 Getting Started
+## 🚀 **Getting Started**
 
-1. Install dependencies: `npm install`
-2. Run development server: `npm run dev`
-3. Open [http://localhost:3000](http://localhost:3000)
+1. **Install dependencies**: `npm install`
+2. **Run development**: `npm run dev`
+3. **Play the game**: Navigate to `/cows-and-bulls`
 
-## 🎯 Features
+## 🎯 **Perfect for All Ages**
 
-- Mood-based recipe recommendations
-- Indian and Italian cuisine
-- Interactive mood selection
-- Responsive design
-- **NEW**: Cows & Bulls logic game
+- **Kids 6-7 years**: Start with 2-digit Easy mode
+- **Beginners**: Try 3-digit Medium mode
+- **Logic enthusiasts**: Challenge with 4-digit Hard mode
 
-## 🛠️ Tech Stack
+## 🛠️ **Tech Stack**
 
-- Next.js 14
-- TypeScript
-- Tailwind CSS
-- React Hooks
+- **Framework**: Next.js 14 with App Router
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **State Management**: React Hooks
+- **Deployment**: Vercel
+
+## 🌐 **Live Demo**
+
+Visit: [https://cows-and-bulls-game.vercel.app](https://cows-and-bulls-game.vercel.app)
+
+---
+
+**This is a clean, standalone Cows & Bulls game with no recipe app dependencies.**
 
  

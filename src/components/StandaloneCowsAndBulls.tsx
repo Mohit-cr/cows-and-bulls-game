@@ -25,6 +25,12 @@ interface PlayerScore {
   bestTime: number;
 }
 
+interface DigitInput {
+  value: string;
+  isMarked: boolean;
+  isCorrect: boolean;
+}
+
 const StandaloneCowsAndBulls: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>({
     secretNumber: '',
@@ -46,6 +52,12 @@ const StandaloneCowsAndBulls: React.FC = () => {
   const [currentPlayer, setCurrentPlayer] = useState('');
   const [players, setPlayers] = useState<PlayerScore[]>([]);
   const [showPlayerInput, setShowPlayerInput] = useState(false);
+  
+  // New state for interactive features
+  const [digitInputs, setDigitInputs] = useState<DigitInput[]>([]);
+  const [selectedDigitIndex, setSelectedDigitIndex] = useState<number>(-1);
+  const [usedDigits, setUsedDigits] = useState<Set<string>>(new Set());
+  const [eliminatedDigits, setEliminatedDigits] = useState<Set<string>>(new Set());
 
   // Load players from localStorage
   useEffect(() => {
@@ -59,6 +71,23 @@ const StandaloneCowsAndBulls: React.FC = () => {
   const savePlayers = (newPlayers: PlayerScore[]) => {
     setPlayers(newPlayers);
     localStorage.setItem('cowsAndBullsPlayers', JSON.stringify(newPlayers));
+  };
+
+  // Initialize digit inputs based on difficulty
+  const initializeDigitInputs = (difficulty: number) => {
+    const inputs: DigitInput[] = [];
+    for (let i = 0; i < difficulty; i++) {
+      inputs.push({
+        value: '',
+        isMarked: false,
+        isCorrect: false,
+      });
+    }
+    setDigitInputs(inputs);
+    setCurrentGuess('');
+    setSelectedDigitIndex(-1);
+    setUsedDigits(new Set());
+    setEliminatedDigits(new Set());
   };
 
   // Generate a random number with specified digits
@@ -122,8 +151,61 @@ const StandaloneCowsAndBulls: React.FC = () => {
       maxHints: Math.min(difficulty, 3), // Adjust hints based on difficulty
       difficulty,
     });
-    setCurrentGuess('');
+    initializeDigitInputs(difficulty);
     setGameMode('playing');
+  };
+
+  // Handle digit input from number pad
+  const handleDigitInput = (digit: string) => {
+    if (selectedDigitIndex >= 0 && selectedDigitIndex < digitInputs.length) {
+      const newInputs = [...digitInputs];
+      newInputs[selectedDigitIndex].value = digit;
+      setDigitInputs(newInputs);
+      
+      // Update current guess
+      const newGuess = newInputs.map(input => input.value).join('');
+      setCurrentGuess(newGuess);
+      
+      // Move to next digit or stay if last digit
+      if (selectedDigitIndex < digitInputs.length - 1) {
+        setSelectedDigitIndex(selectedDigitIndex + 1);
+      }
+    }
+  };
+
+  // Handle digit selection
+  const selectDigit = (index: number) => {
+    setSelectedDigitIndex(index);
+  };
+
+  // Mark digit as correct
+  const markDigit = (index: number) => {
+    if (index >= 0 && index < digitInputs.length) {
+      const newInputs = [...digitInputs];
+      newInputs[index].isMarked = !newInputs[index].isMarked;
+      setDigitInputs(newInputs);
+    }
+  };
+
+  // Delete digit
+  const deleteDigit = (index: number) => {
+    if (index >= 0 && index < digitInputs.length) {
+      const newInputs = [...digitInputs];
+      newInputs[index].value = '';
+      setDigitInputs(newInputs);
+      
+      // Update current guess
+      const newGuess = newInputs.map(input => input.value).join('');
+      setCurrentGuess(newGuess);
+    }
+  };
+
+  // Clear all digits
+  const clearAllDigits = () => {
+    const newInputs = digitInputs.map(input => ({ ...input, value: '' }));
+    setDigitInputs(newInputs);
+    setCurrentGuess('');
+    setSelectedDigitIndex(-1);
   };
 
   // Submit a guess
@@ -136,6 +218,27 @@ const StandaloneCowsAndBulls: React.FC = () => {
     const feedback = calculateFeedback(currentGuess, gameState.secretNumber);
     const isWon = feedback.includes('You won!');
     
+    // Update used and eliminated digits based on feedback
+    const newUsedDigits = new Set(usedDigits);
+    const newEliminatedDigits = new Set(eliminatedDigits);
+    
+    if (feedback.includes('❌ No matches')) {
+      // All digits in this guess are eliminated
+      currentGuess.split('').forEach(digit => {
+        newEliminatedDigits.add(digit);
+      });
+    } else {
+      // Some digits might be used
+      currentGuess.split('').forEach(digit => {
+        if (!newEliminatedDigits.has(digit)) {
+          newUsedDigits.add(digit);
+        }
+      });
+    }
+    
+    setUsedDigits(newUsedDigits);
+    setEliminatedDigits(newEliminatedDigits);
+    
     setGameState(prev => ({
       ...prev,
       attempts: [...prev.attempts, currentGuess],
@@ -145,10 +248,11 @@ const StandaloneCowsAndBulls: React.FC = () => {
       endTime: isWon ? Date.now() : prev.endTime,
     }));
     
-    setCurrentGuess('');
-    
     if (isWon) {
       setGameMode('gameOver');
+    } else {
+      // Clear inputs for next guess
+      clearAllDigits();
     }
   };
 
@@ -310,8 +414,9 @@ const StandaloneCowsAndBulls: React.FC = () => {
                     <li>• <strong>Cows:</strong> Correct digit in wrong position</li>
                     <li>• Each digit appears only once in the number</li>
                     <li>• First digit cannot be 0</li>
-                    <li>• Use hints wisely - limited per game!</li>
+                    <li>• Use hints wisely - you have {gameState.maxHints}!</li>
                     <li>• <strong>Easy:</strong> 2 digits, <strong>Medium:</strong> 3 digits, <strong>Hard:</strong> 4 digits</li>
+                    <li>• <strong>New:</strong> Click digits to select, use number pad to input!</li>
                   </ul>
                   <button
                     onClick={() => setShowRules(false)}
@@ -445,7 +550,7 @@ const StandaloneCowsAndBulls: React.FC = () => {
   // Main Game Screen
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-6">
             <h1 className="text-4xl font-bold text-indigo-600 mb-2">
@@ -504,6 +609,7 @@ const StandaloneCowsAndBulls: React.FC = () => {
                   <li>• First digit cannot be 0</li>
                   <li>• Use hints wisely - you have {gameState.maxHints}!</li>
                   <li>• <strong>Current Difficulty:</strong> {gameState.difficulty} digits</li>
+                  <li>• <strong>New:</strong> Click digits to select, use number pad to input!</li>
                 </ul>
                 <button
                   onClick={() => setShowRules(false)}
@@ -515,24 +621,119 @@ const StandaloneCowsAndBulls: React.FC = () => {
             </div>
           )}
 
-          {/* Input Section */}
+          {/* Interactive Digit Input Fields */}
           <div className="bg-gray-50 rounded-lg p-6 mb-6">
-            <div className="flex gap-4 items-center justify-center">
-              <input
-                type="text"
-                value={currentGuess}
-                onChange={(e) => setCurrentGuess(e.target.value.replace(/\D/g, '').slice(0, gameState.difficulty))}
-                placeholder={`Enter ${gameState.difficulty} digits`}
-                className="text-2xl text-center font-mono w-32 h-12 border-2 border-indigo-300 rounded-lg focus:border-indigo-500 focus:outline-none"
-                maxLength={gameState.difficulty}
-              />
+            <div className="text-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Enter Your Guess:</h3>
+              <p className="text-sm text-gray-600">Click on a digit position to select it, then use the number pad below</p>
+            </div>
+            
+            {/* Digit Input Fields */}
+            <div className="flex justify-center gap-3 mb-4">
+              {digitInputs.map((input, index) => (
+                <div key={index} className="relative">
+                  <div
+                    className={`w-16 h-16 border-2 rounded-lg flex items-center justify-center text-2xl font-mono cursor-pointer transition-all duration-200 ${
+                      selectedDigitIndex === index
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                        : input.isMarked
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : input.value
+                        ? 'border-blue-300 bg-blue-50 text-blue-700'
+                        : 'border-gray-300 bg-white text-gray-400'
+                    }`}
+                    onClick={() => selectDigit(index)}
+                  >
+                    {input.value || '?'}
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  {selectedDigitIndex === index && (
+                    <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 flex gap-2">
+                      <button
+                        onClick={() => markDigit(index)}
+                        className={`px-3 py-1 text-xs rounded ${
+                          input.isMarked
+                            ? 'bg-red-500 hover:bg-red-600 text-white'
+                            : 'bg-green-500 hover:bg-green-600 text-white'
+                        }`}
+                      >
+                        {input.isMarked ? 'Unmark' : 'Mark'}
+                      </button>
+                      <button
+                        onClick={() => deleteDigit(index)}
+                        className="px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Current Guess Display */}
+            <div className="text-center mb-4">
+              <p className="text-sm text-gray-600">Current Guess:</p>
+              <p className="text-xl font-mono text-indigo-600">{currentGuess || 'No digits entered'}</p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={clearAllDigits}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+              >
+                🗑️ Clear All
+              </button>
               <button
                 onClick={submitGuess}
                 disabled={currentGuess.length !== gameState.difficulty}
                 className="bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-300 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
               >
-                Guess!
+                🎯 Submit Guess
               </button>
+            </div>
+          </div>
+
+          {/* Number Pad */}
+          <div className="bg-gray-50 rounded-lg p-6 mb-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">Number Pad</h3>
+            <div className="grid grid-cols-5 gap-3 max-w-xs mx-auto">
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map((digit) => (
+                <button
+                  key={digit}
+                  onClick={() => handleDigitInput(digit)}
+                  disabled={selectedDigitIndex === -1}
+                  className={`w-12 h-12 rounded-lg font-bold text-lg transition-all duration-200 ${
+                    selectedDigitIndex === -1
+                      ? 'bg-gray-300 cursor-not-allowed'
+                      : eliminatedDigits.has(digit)
+                      ? 'bg-red-200 text-red-600 cursor-not-allowed'
+                      : usedDigits.has(digit)
+                      ? 'bg-yellow-200 text-yellow-600 hover:bg-yellow-300'
+                      : 'bg-blue-500 text-white hover:bg-blue-600 hover:scale-105'
+                  }`}
+                >
+                  {digit}
+                </button>
+              ))}
+            </div>
+            
+            {/* Legend */}
+            <div className="flex justify-center gap-6 mt-4 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                <span>Available</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-yellow-200 rounded"></div>
+                <span>Used</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-red-200 rounded"></div>
+                <span>Eliminated</span>
+              </div>
             </div>
           </div>
 

@@ -12,7 +12,7 @@ interface GameState {
   endTime: number | null;
   hintsUsed: number;
   maxHints: number;
-  difficulty: number; // 2, 3, or 4 digits
+  difficulty: number;
 }
 
 interface PlayerScore {
@@ -25,19 +25,13 @@ interface PlayerScore {
   bestTime: number;
 }
 
-interface DigitInput {
-  value: string;
-  isMarked: boolean;
-  isCorrect: boolean;
-}
-
 interface WorkingDigit {
   digit: string;
-  status: 'red' | 'yellow' | 'green' | 'none'; // Red: not needed, Yellow: possibly, Green: definitely needed
+  status: 'red' | 'yellow' | 'green' | 'none';
   notes: string;
 }
 
-const StandaloneCowsAndBulls: React.FC = () => {
+const EnhancedCowsAndBulls: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>({
     secretNumber: '',
     attempts: [],
@@ -48,7 +42,7 @@ const StandaloneCowsAndBulls: React.FC = () => {
     endTime: null,
     hintsUsed: 0,
     maxHints: 3,
-    difficulty: 4, // Default to 4 digits
+    difficulty: 4,
   });
 
   const [currentGuess, setCurrentGuess] = useState('');
@@ -59,15 +53,10 @@ const StandaloneCowsAndBulls: React.FC = () => {
   const [players, setPlayers] = useState<PlayerScore[]>([]);
   const [showPlayerInput, setShowPlayerInput] = useState(false);
   
-  // New state for interactive features
-  const [digitInputs, setDigitInputs] = useState<DigitInput[]>([]);
-  const [selectedDigitIndex, setSelectedDigitIndex] = useState<number>(-1);
-  const [usedDigits, setUsedDigits] = useState<Set<string>>(new Set());
-  const [eliminatedDigits, setEliminatedDigits] = useState<Set<string>>(new Set());
-  
   // New state for working space and manual marking
   const [workingDigits, setWorkingDigits] = useState<WorkingDigit[]>([]);
   const [showWorkingSpace, setShowWorkingSpace] = useState(false);
+  const [selectedDigitIndex, setSelectedDigitIndex] = useState<number>(-1);
 
   // Load players from localStorage
   useEffect(() => {
@@ -83,23 +72,8 @@ const StandaloneCowsAndBulls: React.FC = () => {
     localStorage.setItem('cowsAndBullsPlayers', JSON.stringify(newPlayers));
   };
 
-  // Initialize digit inputs and working space based on difficulty
-  const initializeDigitInputs = (difficulty: number) => {
-    const inputs: DigitInput[] = [];
-    for (let i = 0; i < difficulty; i++) {
-      inputs.push({
-        value: '',
-        isMarked: false,
-        isCorrect: false,
-      });
-    }
-    setDigitInputs(inputs);
-    setCurrentGuess('');
-    setSelectedDigitIndex(-1);
-    setUsedDigits(new Set());
-    setEliminatedDigits(new Set());
-    
-    // Initialize working digits (0-9)
+  // Initialize working digits (0-9)
+  const initializeWorkingDigits = () => {
     const digits: WorkingDigit[] = [];
     for (let i = 0; i < 10; i++) {
       digits.push({
@@ -109,21 +83,6 @@ const StandaloneCowsAndBulls: React.FC = () => {
       });
     }
     setWorkingDigits(digits);
-  };
-
-  // Handle keyboard input
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (selectedDigitIndex >= 0 && selectedDigitIndex < digitInputs.length) {
-      if (e.key >= '0' && e.key <= '9') {
-        handleDigitInput(e.key);
-      } else if (e.key === 'Backspace' || e.key === 'Delete') {
-        deleteDigit(selectedDigitIndex);
-      } else if (e.key === 'ArrowLeft' && selectedDigitIndex > 0) {
-        setSelectedDigitIndex(selectedDigitIndex - 1);
-      } else if (e.key === 'ArrowRight' && selectedDigitIndex < digitInputs.length - 1) {
-        setSelectedDigitIndex(selectedDigitIndex + 1);
-      }
-    }
   };
 
   // Generate a random number with specified digits
@@ -184,80 +143,29 @@ const StandaloneCowsAndBulls: React.FC = () => {
       startTime: Date.now(),
       endTime: null,
       hintsUsed: 0,
-      maxHints: Math.min(difficulty, 3), // Adjust hints based on difficulty
+      maxHints: Math.min(difficulty, 3),
       difficulty,
     });
-    initializeDigitInputs(difficulty);
+    setCurrentGuess('');
+    setSelectedDigitIndex(-1);
+    initializeWorkingDigits();
     setGameMode('playing');
   };
 
-  // Handle digit input from keyboard or number pad
-  const handleDigitInput = (digit: string) => {
-    if (selectedDigitIndex >= 0 && selectedDigitIndex < digitInputs.length) {
-      const newInputs = [...digitInputs];
-      newInputs[selectedDigitIndex].value = digit;
-      setDigitInputs(newInputs);
-      
-      // Update current guess
-      const newGuess = newInputs.map(input => input.value).join('');
-      setCurrentGuess(newGuess);
-      
-      // Move to next digit or stay if last digit
-      if (selectedDigitIndex < digitInputs.length - 1) {
-        setSelectedDigitIndex(selectedDigitIndex + 1);
+  // Handle keyboard input
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key >= '0' && e.key <= '9') {
+      // Add digit to current guess
+      if (currentGuess.length < gameState.difficulty) {
+        setCurrentGuess(prev => prev + e.key);
       }
+    } else if (e.key === 'Backspace' || e.key === 'Delete') {
+      // Remove last digit
+      setCurrentGuess(prev => prev.slice(0, -1));
+    } else if (e.key === 'Enter') {
+      // Submit guess
+      submitGuess();
     }
-  };
-
-  // Handle digit selection
-  const selectDigit = (index: number) => {
-    setSelectedDigitIndex(index);
-  };
-
-  // Mark digit as correct
-  const markDigit = (index: number) => {
-    if (index >= 0 && index < digitInputs.length) {
-      const newInputs = [...digitInputs];
-      newInputs[index].isMarked = !newInputs[index].isMarked;
-      setDigitInputs(newInputs);
-    }
-  };
-
-  // Delete digit
-  const deleteDigit = (index: number) => {
-    if (index >= 0 && index < digitInputs.length) {
-      const newInputs = [...digitInputs];
-      newInputs[index].value = '';
-      setDigitInputs(newInputs);
-      
-      // Update current guess
-      const newGuess = newInputs.map(input => input.value).join('');
-      setCurrentGuess(newGuess);
-    }
-  };
-
-  // Clear all digits
-  const clearAllDigits = () => {
-    const newInputs = digitInputs.map(input => ({ ...input, value: '' }));
-    setDigitInputs(newInputs);
-    setCurrentGuess('');
-    setSelectedDigitIndex(-1);
-  };
-
-  // Mark working digit status
-  const markWorkingDigit = (digit: string, status: 'red' | 'yellow' | 'green' | 'none') => {
-    const newWorkingDigits = workingDigits.map(wd => 
-      wd.digit === digit ? { ...wd, status } : wd
-    );
-    setWorkingDigits(newWorkingDigits);
-  };
-
-  // Add note to working digit
-  const addNoteToDigit = (digit: string, note: string) => {
-    const newWorkingDigits = workingDigits.map(wd => 
-      wd.digit === digit ? { ...wd, notes: note } : wd
-    );
-    setWorkingDigits(newWorkingDigits);
   };
 
   // Submit a guess
@@ -269,31 +177,6 @@ const StandaloneCowsAndBulls: React.FC = () => {
 
     const feedback = calculateFeedback(currentGuess, gameState.secretNumber);
     const isWon = feedback.includes('You won!');
-    
-    // Update used and eliminated digits based on feedback
-    const newUsedDigits = new Set(usedDigits);
-    const newEliminatedDigits = new Set(eliminatedDigits);
-    
-    if (feedback.includes('❌ No matches')) {
-      // All digits in this guess are eliminated
-      currentGuess.split('').forEach(digit => {
-        newEliminatedDigits.add(digit);
-        // Mark as red in working space
-        markWorkingDigit(digit, 'red');
-      });
-    } else {
-      // Some digits might be used
-      currentGuess.split('').forEach(digit => {
-        if (!newEliminatedDigits.has(digit)) {
-          newUsedDigits.add(digit);
-          // Mark as yellow in working space (possibly needed)
-          markWorkingDigit(digit, 'yellow');
-        }
-      });
-    }
-    
-    setUsedDigits(newUsedDigits);
-    setEliminatedDigits(newEliminatedDigits);
     
     setGameState(prev => ({
       ...prev,
@@ -307,8 +190,8 @@ const StandaloneCowsAndBulls: React.FC = () => {
     if (isWon) {
       setGameMode('gameOver');
     } else {
-      // Clear inputs for next guess
-      clearAllDigits();
+      // Clear current guess for next attempt
+      setCurrentGuess('');
     }
   };
 
@@ -347,6 +230,22 @@ const StandaloneCowsAndBulls: React.FC = () => {
     }));
   };
 
+  // Mark working digit status
+  const markWorkingDigit = (digit: string, status: 'red' | 'yellow' | 'green' | 'none') => {
+    const newWorkingDigits = workingDigits.map(wd => 
+      wd.digit === digit ? { ...wd, status } : wd
+    );
+    setWorkingDigits(newWorkingDigits);
+  };
+
+  // Add note to working digit
+  const addNoteToDigit = (digit: string, note: string) => {
+    const newWorkingDigits = workingDigits.map(wd => 
+      wd.digit === digit ? { ...wd, notes: note } : wd
+    );
+    setWorkingDigits(newWorkingDigits);
+  };
+
   // Record player score
   const recordPlayerScore = (playerName: string) => {
     const stats = getGameStats();
@@ -358,12 +257,11 @@ const StandaloneCowsAndBulls: React.FC = () => {
       gamesWon: (existingPlayer?.gamesWon || 0) + 1,
       totalAttempts: (existingPlayer?.totalAttempts || 0) + stats.attempts,
       bestAttempts: existingPlayer ? Math.min(existingPlayer.bestAttempts, stats.attempts) : stats.attempts,
-      averageAttempts: 0, // Will be calculated below
+      averageAttempts: 0,
       totalTime: (existingPlayer?.totalTime || 0) + stats.duration,
       bestTime: existingPlayer ? Math.min(existingPlayer.bestTime, stats.duration) : stats.duration,
     };
 
-    // Calculate average attempts
     newScore.averageAttempts = Math.round(newScore.totalAttempts / newScore.gamesWon);
 
     const updatedPlayers = existingPlayer 
@@ -387,7 +285,7 @@ const StandaloneCowsAndBulls: React.FC = () => {
     return {
       attempts: gameState.attempts.length,
       time: `${minutes}:${seconds.toString().padStart(2, '0')}`,
-      duration, // in seconds
+      duration,
       hintsUsed: gameState.hintsUsed,
     };
   };
@@ -476,7 +374,7 @@ const StandaloneCowsAndBulls: React.FC = () => {
                     <li>• First digit cannot be 0</li>
                     <li>• Use hints wisely - you have {gameState.maxHints}!</li>
                     <li>• <strong>Easy:</strong> 2 digits, <strong>Medium:</strong> 3 digits, <strong>Hard:</strong> 4 digits</li>
-                    <li>• <strong>New:</strong> Type numbers directly or use arrow keys to navigate!</li>
+                    <li>• <strong>New:</strong> Type numbers directly with keyboard!</li>
                     <li>• <strong>Working Space:</strong> Mark digits Red/Yellow/Green as you discover them!</li>
                   </ul>
                   <button
@@ -676,7 +574,7 @@ const StandaloneCowsAndBulls: React.FC = () => {
                   <li>• First digit cannot be 0</li>
                   <li>• Use hints wisely - you have {gameState.maxHints}!</li>
                   <li>• <strong>Current Difficulty:</strong> {gameState.difficulty} digits</li>
-                  <li>• <strong>New:</strong> Type numbers directly or use arrow keys to navigate!</li>
+                  <li>• <strong>New:</strong> Type numbers directly with keyboard!</li>
                   <li>• <strong>Working Space:</strong> Mark digits Red/Yellow/Green as you discover them!</li>
                 </ul>
                 <button
@@ -696,51 +594,14 @@ const StandaloneCowsAndBulls: React.FC = () => {
               <div className="bg-gray-50 rounded-lg p-6 mb-6">
                 <div className="text-center mb-4">
                   <h3 className="text-lg font-semibold text-gray-800 mb-2">Enter Your Guess:</h3>
-                  <p className="text-sm text-gray-600">Click on a digit position or use keyboard (0-9, arrows, backspace)</p>
+                  <p className="text-sm text-gray-600">Type numbers directly with keyboard (0-9, Enter to submit, Backspace to delete)</p>
                 </div>
                 
-                {/* Digit Input Fields */}
+                {/* Digit Input Display */}
                 <div className="flex justify-center gap-3 mb-4">
-                  {digitInputs.map((input, index) => (
-                    <div key={index} className="relative">
-                      <div
-                        className={`w-16 h-16 border-2 rounded-lg flex items-center justify-center text-2xl font-mono cursor-pointer transition-all duration-200 ${
-                          selectedDigitIndex === index
-                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                            : input.isMarked
-                            ? 'border-green-500 bg-green-50 text-green-700'
-                            : input.value
-                            ? 'border-blue-300 bg-blue-50 text-blue-700'
-                            : 'border-gray-300 bg-white text-gray-400'
-                        }`}
-                        onClick={() => selectDigit(index)}
-                        onKeyDown={handleKeyPress}
-                        tabIndex={0}
-                      >
-                        {input.value || '?'}
-                      </div>
-                      
-                      {/* Action Buttons */}
-                      {selectedDigitIndex === index && (
-                        <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 flex gap-2">
-                          <button
-                            onClick={() => markDigit(index)}
-                            className={`px-3 py-1 text-xs rounded ${
-                              input.isMarked
-                                ? 'bg-red-500 hover:bg-red-600 text-white'
-                                : 'bg-green-500 hover:bg-green-600 text-white'
-                            }`}
-                          >
-                            {input.isMarked ? 'Unmark' : 'Mark'}
-                          </button>
-                          <button
-                            onClick={() => deleteDigit(index)}
-                            className="px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
+                  {Array.from({ length: gameState.difficulty }, (_, index) => (
+                    <div key={index} className="w-16 h-16 border-2 border-gray-300 rounded-lg flex items-center justify-center text-2xl font-mono bg-white">
+                      {currentGuess[index] || '?'}
                     </div>
                   ))}
                 </div>
@@ -754,10 +615,10 @@ const StandaloneCowsAndBulls: React.FC = () => {
                 {/* Action Buttons */}
                 <div className="flex justify-center gap-4">
                   <button
-                    onClick={clearAllDigits}
+                    onClick={() => setCurrentGuess('')}
                     className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
                   >
-                    🗑️ Clear All
+                    🗑️ Clear
                   </button>
                   <button
                     onClick={submitGuess}
@@ -766,6 +627,21 @@ const StandaloneCowsAndBulls: React.FC = () => {
                   >
                     🎯 Submit Guess
                   </button>
+                </div>
+
+                {/* Keyboard Input Area */}
+                <div className="mt-4 p-4 bg-white rounded-lg border-2 border-dashed border-gray-300">
+                  <p className="text-sm text-gray-600 text-center mb-2">Type here to input your guess:</p>
+                  <input
+                    type="text"
+                    value={currentGuess}
+                    onChange={(e) => setCurrentGuess(e.target.value.replace(/\D/g, '').slice(0, gameState.difficulty))}
+                    onKeyDown={handleKeyPress}
+                    placeholder={`Enter ${gameState.difficulty} digits`}
+                    className="w-full text-center text-2xl font-mono p-3 border-2 border-indigo-300 rounded-lg focus:border-indigo-500 focus:outline-none"
+                    maxLength={gameState.difficulty}
+                    autoFocus
+                  />
                 </div>
               </div>
 
@@ -887,4 +763,4 @@ const StandaloneCowsAndBulls: React.FC = () => {
   );
 };
 
-export default StandaloneCowsAndBulls; 
+export default EnhancedCowsAndBulls; 

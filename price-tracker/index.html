@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Crypto Price Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            margin: 0;
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .crypto-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 10px 0;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+        
+        button {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background: #ff5252;
+            transform: scale(1.05);
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #ff6b6b;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>Crypto Price Tracker</h1>
+    
+    <div class="crypto-card" id="bitcoin-price">
+        <div class="loading-spinner"></div>Loading Bitcoin price...
+    </div>
+    <div class="crypto-card" id="ethereum-price">
+        <div class="loading-spinner"></div>Loading Ethereum price...
+    </div>
+    <div class="crypto-card" id="solana-price">
+        <div class="loading-spinner"></div>Loading Solana price...
+    </div>
+    <div class="crypto-card" id="hype-price">
+        <div class="loading-spinner"></div>Loading HYPE price...
+    </div>
+    
+    <button onclick="fetchPrices()">Update All Prices</button>
+    
+    <script>
+        function fetchPrices() {
+            fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,hyperliquid&vs_currencies=usd')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('bitcoin-price').innerHTML = `Bitcoin: $${data.bitcoin.usd.toLocaleString()}`;
+                document.getElementById('ethereum-price').innerHTML = `Ethereum: $${data.ethereum.usd.toLocaleString()}`;
+                document.getElementById('solana-price').innerHTML = `Solana: $${data.solana.usd.toLocaleString()}`;
+                document.getElementById('hype-price').innerHTML = `HYPE: $${data.hyperliquid.usd.toLocaleString()}`;
+            })
+            .catch(error => {
+                console.error('Error fetching prices:', error);
+                document.getElementById('bitcoin-price').innerHTML = 'Error loading Bitcoin price';
+                document.getElementById('ethereum-price').innerHTML = 'Error loading Ethereum price';
+                document.getElementById('solana-price').innerHTML = 'Error loading Solana price';
+                document.getElementById('hype-price').innerHTML = 'Error loading HYPE price';
+            });
+        }
+        
+        // Load prices immediately when page loads
+        fetchPrices();
+        
+        // Auto-update every 30 seconds
+        setInterval(fetchPrices, 30000);
+    </script>
+</body>
+</html>

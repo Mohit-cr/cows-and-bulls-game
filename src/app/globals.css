@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply text-gray-800;
+  }
+  h1 {
+    @apply text-4xl font-bold mb-6;
+  }
+  h2 {
+    @apply text-2xl font-semibold mb-4;
+  }
+  p {
+    @apply mb-4;
+  }
+}
+
+@layer components {
+  .mood-card {
+    @apply bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-300 border-2 border-transparent hover:border-recipe-yellow cursor-pointer;
+  }
+  
+  .recipe-card {
+    @apply bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300;
+  }
+  
+  .btn-primary {
+    @apply bg-recipe-red text-white font-medium py-2 px-4 rounded-md hover:bg-recipe-red/90 transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-recipe-green text-white font-medium py-2 px-4 rounded-md hover:bg-recipe-green/90 transition-colors;
+  }
+  
+  .emoji-lg {
+    @apply text-4xl;
+  }
+} 

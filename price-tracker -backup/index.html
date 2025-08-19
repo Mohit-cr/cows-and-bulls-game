@@ -1,0 +1,146 @@
+html<!DOCTYPE html>
+<html>
+<head>
+    <title>Crypto Price Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            margin: 0;
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .crypto-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 10px 0;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+        
+        button {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background: #ff5252;
+            transform: scale(1.05);
+        }
+        </style>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="crypto-card" id="bitcoin-price">Loading Bitcoin price...</div>
+    <div class="crypto-card" id="ethereum-price">Loading Ethereum price...</div>
+    <div class="crypto-card" id="solana-price">Loading Solana price...</div>
+    <div class="crypto-card" id="hype-price">Loading HYPE price...</div>
+    <div class="crypto-card">
+        <h3>Bitcoin Price - Last 24 Hours</h3>
+        <canvas id="bitcoinChart" width="400" height="200"></canvas>
+    </div>
+    <button onclick="fetchPrices()">Update All Prices</button>
+    <script>
+        let bitcoinChart; // Global variable to store our chart
+        
+        function fetchPrices() {
+            // Get current prices (same as before)
+            fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,hyperliquid&vs_currencies=usd')
+            .then(response => response.json()) // Convert response to readable data
+            .then(data => {
+                // Update price displays (same as before)
+                document.getElementById('bitcoin-price').innerHTML = `Bitcoin: $${data.bitcoin.usd.toLocaleString()}`;
+                document.getElementById('ethereum-price').innerHTML = `Ethereum: $${data.ethereum.usd.toLocaleString()}`;
+                document.getElementById('solana-price').innerHTML = `Solana: $${data.solana.usd.toLocaleString()}`;
+                document.getElementById('hype-price').innerHTML = `HYPE: $${data.hyperliquid.usd.toLocaleString()}`;
+            });
+        }
+        
+        function fetchBitcoinChart() {
+            // Get 24-hour historical data for Bitcoin
+            fetch('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=1')
+            .then(response => response.json())
+            .then(data => {
+                // Extract price data - API returns [timestamp, price] pairs
+                const prices = data.prices;
+                
+                // Create labels (time) and data (prices) for the chart
+                const labels = prices.map(price => {
+                    const date = new Date(price[0]); // Convert timestamp to readable time
+                    return date.getHours() + ':00'; // Show as "14:00", "15:00", etc.
+                });
+                
+                const priceData = prices.map(price => price[1]); // Extract just the price values
+                
+                // Create the beautiful chart
+                const ctx = document.getElementById('bitcoinChart').getContext('2d');
+                
+                // Destroy existing chart if it exists (prevents duplicates)
+                if (bitcoinChart) {
+                    bitcoinChart.destroy();
+                }
+                
+                // Create new chart with styling
+                bitcoinChart = new Chart(ctx, {
+                    type: 'line', // Line chart type
+                    data: {
+                        labels: labels, // X-axis (time)
+                        datasets: [{
+                            label: 'Bitcoin Price (USD)',
+                            data: priceData, // Y-axis (prices)
+                            borderColor: '#ff6b6b', // Line color (matches button)
+                            backgroundColor: 'rgba(255, 107, 107, 0.1)', // Fill under line
+                            borderWidth: 3,
+                            fill: true, // Fill area under the line
+                            tension: 0.4 // Smooth curves
+                        }]
+                    },
+                    options: {
+                        responsive: true, // Adjust to container size
+                        plugins: {
+                            legend: {
+                                labels: { color: 'white' } // White text for dark background
+                            }
+                        },
+                        scales: {
+                            x: { 
+                                ticks: { color: 'white' } // White axis labels
+                            },
+                            y: { 
+                                ticks: { color: 'white' }
+                            }
+                        }
+                    }
+                });
+            });
+        }
+        
+        // Run when page loads
+        fetchPrices(); // Get current prices
+        fetchBitcoinChart(); // Create the chart
+        
+        // Auto-update every 30 seconds
+        setInterval(fetchPrices, 30000); // Update prices
+        setInterval(fetchBitcoinChart, 300000); // Update chart every 5 minutes (API limit friendly)
+        </script>
+</body>
+</html>

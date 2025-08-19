@@ -696,7 +696,7 @@ const StandaloneCowsAndBulls: React.FC = () => {
               <div className="bg-gray-50 rounded-lg p-6 mb-6">
                 <div className="text-center mb-4">
                   <h3 className="text-lg font-semibold text-gray-800 mb-2">Enter Your Guess:</h3>
-                  <p className="text-sm text-gray-600">Click on a digit position or use keyboard (0-9, arrows, backspace)</p>
+                  <p className="text-sm text-gray-600">Type numbers directly with keyboard or use the number pad below</p>
                 </div>
                 
                 {/* Digit Input Fields */}
@@ -767,25 +767,92 @@ const StandaloneCowsAndBulls: React.FC = () => {
                     🎯 Submit Guess
                   </button>
                 </div>
+
+                {/* Mobile-Optimized Input Field */}
+                <div className="mt-6 p-4 bg-white rounded-lg border-2 border-dashed border-indigo-300">
+                  <p className="text-sm text-indigo-600 text-center mb-3">📱 Mobile-Friendly Input:</p>
+                  <input
+                    type="text"
+                    value={currentGuess}
+                    onChange={(e) => setCurrentGuess(e.target.value.replace(/\D/g, '').slice(0, gameState.difficulty))}
+                    onKeyDown={handleKeyPress}
+                    placeholder={`Type ${gameState.difficulty} digits here`}
+                    className="w-full text-center text-2xl font-mono p-3 border-2 border-indigo-300 rounded-lg focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    maxLength={gameState.difficulty}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                  />
+                  <p className="text-xs text-gray-500 text-center mt-2">
+                    Use keyboard or number pad below. On mobile, this will show the numeric keypad.
+                  </p>
+                </div>
               </div>
 
-              {/* Game Statistics */}
-              {stats && (
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="bg-indigo-50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-indigo-600">{stats.attempts}</div>
-                    <div className="text-sm text-indigo-500">Attempts</div>
+              {/* Mobile-Optimized Number Pad */}
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-semibold text-indigo-800 mb-4 text-center">📱 Number Pad</h3>
+                <p className="text-sm text-indigo-600 text-center mb-4">Click digits to input them into the selected position</p>
+                
+                {/* Number Pad Grid */}
+                <div className="grid grid-cols-5 gap-3 max-w-xs mx-auto mb-4">
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map((digit) => (
+                    <button
+                      key={digit}
+                      onClick={() => handleDigitInput(digit)}
+                      disabled={selectedDigitIndex === -1}
+                      className={`w-14 h-14 md:w-16 md:h-16 rounded-xl font-bold text-xl md:text-2xl transition-all duration-200 transform hover:scale-105 active:scale-95 touch-manipulation ${
+                        selectedDigitIndex === -1
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : eliminatedDigits.has(digit)
+                          ? 'bg-red-200 text-red-600 cursor-not-allowed'
+                          : usedDigits.has(digit)
+                          ? 'bg-yellow-200 text-yellow-600 hover:bg-yellow-300'
+                          : 'bg-indigo-500 text-white hover:bg-indigo-600 shadow-lg hover:shadow-xl'
+                      }`}
+                      style={{ WebkitTapHighlightColor: 'transparent' }}
+                    >
+                      {digit}
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Special Action Buttons */}
+                <div className="flex flex-col sm:flex-row justify-center gap-3">
+                  <button
+                    onClick={() => {
+                      if (selectedDigitIndex >= 0 && selectedDigitIndex < digitInputs.length) {
+                        deleteDigit(selectedDigitIndex);
+                      }
+                    }}
+                    disabled={selectedDigitIndex === -1}
+                    className="px-6 py-3 bg-red-500 hover:bg-red-600 disabled:bg-gray-300 text-white rounded-lg font-semibold transition-colors touch-manipulation"
+                  >
+                    🗑️ Delete
+                  </button>
+                  <button
+                    onClick={clearAllDigits}
+                    className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-semibold transition-colors touch-manipulation"
+                  >
+                    🗑️ Clear All
+                  </button>
+                </div>
+                
+                {/* Legend */}
+                <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-6 mt-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-indigo-500 rounded"></div>
+                    <span className="text-indigo-700">Available</span>
                   </div>
-                  <div className="bg-green-50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-green-600">{stats.time}</div>
-                    <div className="text-sm text-green-500">Time</div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-yellow-200 rounded"></div>
+                    <span className="text-indigo-700">Used</span>
                   </div>
-                  <div className="bg-yellow-50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-yellow-600">{stats.hintsUsed}</div>
-                    <div className="text-sm text-yellow-500">Hints Used</div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-red-200 rounded"></div>
+                    <span className="text-indigo-700">Eliminated</span>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Right Column - Working Space */}
@@ -881,6 +948,24 @@ const StandaloneCowsAndBulls: React.FC = () => {
               )}
             </div>
           </div>
+
+          {/* Game Statistics */}
+          {stats && (
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="bg-indigo-50 rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-indigo-600">{stats.attempts}</div>
+                <div className="text-sm text-indigo-500">Attempts</div>
+              </div>
+              <div className="bg-green-50 rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">{stats.time}</div>
+                <div className="text-sm text-green-500">Time</div>
+              </div>
+              <div className="bg-yellow-50 rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-yellow-600">{stats.hintsUsed}</div>
+                <div className="text-sm text-yellow-500">Hints Used</div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -12,6 +12,17 @@ interface GameState {
   endTime: number | null;
   hintsUsed: number;
   maxHints: number;
+  difficulty: number; // 2, 3, or 4 digits
+}
+
+interface PlayerScore {
+  name: string;
+  gamesWon: number;
+  totalAttempts: number;
+  bestAttempts: number;
+  averageAttempts: number;
+  totalTime: number;
+  bestTime: number;
 }
 
 const StandaloneCowsAndBulls: React.FC = () => {
@@ -25,26 +36,46 @@ const StandaloneCowsAndBulls: React.FC = () => {
     endTime: null,
     hintsUsed: 0,
     maxHints: 3,
+    difficulty: 4, // Default to 4 digits
   });
 
   const [currentGuess, setCurrentGuess] = useState('');
   const [showRules, setShowRules] = useState(false);
+  const [showScores, setShowScores] = useState(false);
+  const [gameMode, setGameMode] = useState<'menu' | 'playing' | 'gameOver'>('menu');
+  const [currentPlayer, setCurrentPlayer] = useState('');
+  const [players, setPlayers] = useState<PlayerScore[]>([]);
+  const [showPlayerInput, setShowPlayerInput] = useState(false);
 
-  // Generate a random 4-digit number with unique digits
-  const generateSecretNumber = (): string => {
-    const digits = '0123456789'.split('');
+  // Load players from localStorage
+  useEffect(() => {
+    const savedPlayers = localStorage.getItem('cowsAndBullsPlayers');
+    if (savedPlayers) {
+      setPlayers(JSON.parse(savedPlayers));
+    }
+  }, []);
+
+  // Save players to localStorage
+  const savePlayers = (newPlayers: PlayerScore[]) => {
+    setPlayers(newPlayers);
+    localStorage.setItem('cowsAndBullsPlayers', JSON.stringify(newPlayers));
+  };
+
+  // Generate a random number with specified digits
+  const generateSecretNumber = (digits: number): string => {
+    const availableDigits = '0123456789'.split('');
     let result = '';
     
     // First digit can't be 0
-    const firstDigit = digits.slice(1)[Math.floor(Math.random() * 9)];
+    const firstDigit = availableDigits.slice(1)[Math.floor(Math.random() * 9)];
     result += firstDigit;
-    digits.splice(digits.indexOf(firstDigit), 1);
+    availableDigits.splice(availableDigits.indexOf(firstDigit), 1);
     
-    // Add remaining 3 digits
-    for (let i = 0; i < 3; i++) {
-      const randomIndex = Math.floor(Math.random() * digits.length);
-      result += digits[randomIndex];
-      digits.splice(randomIndex, 1);
+    // Add remaining digits
+    for (let i = 1; i < digits; i++) {
+      const randomIndex = Math.floor(Math.random() * availableDigits.length);
+      result += availableDigits[randomIndex];
+      availableDigits.splice(randomIndex, 1);
     }
     
     return result;
@@ -55,7 +86,7 @@ const StandaloneCowsAndBulls: React.FC = () => {
     let bulls = 0;
     let cows = 0;
     
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < secret.length; i++) {
       if (guess[i] === secret[i]) {
         bulls++;
       } else if (secret.includes(guess[i])) {
@@ -63,7 +94,7 @@ const StandaloneCowsAndBulls: React.FC = () => {
       }
     }
     
-    if (bulls === 4) return '🎉 4 Bulls! You won!';
+    if (bulls === secret.length) return `🎉 ${bulls} Bulls! You won!`;
     if (bulls === 0 && cows === 0) return '❌ No matches';
     
     let feedback = '';
@@ -77,8 +108,8 @@ const StandaloneCowsAndBulls: React.FC = () => {
   };
 
   // Start a new game
-  const startNewGame = () => {
-    const newSecretNumber = generateSecretNumber();
+  const startNewGame = (difficulty: number) => {
+    const newSecretNumber = generateSecretNumber(difficulty);
     setGameState({
       secretNumber: newSecretNumber,
       attempts: [],
@@ -88,15 +119,17 @@ const StandaloneCowsAndBulls: React.FC = () => {
       startTime: Date.now(),
       endTime: null,
       hintsUsed: 0,
-      maxHints: 3,
+      maxHints: Math.min(difficulty, 3), // Adjust hints based on difficulty
+      difficulty,
     });
     setCurrentGuess('');
+    setGameMode('playing');
   };
 
   // Submit a guess
   const submitGuess = () => {
-    if (currentGuess.length !== 4 || !/^\d{4}$/.test(currentGuess)) {
-      alert('Please enter a valid 4-digit number!');
+    if (currentGuess.length !== gameState.difficulty || !/^\d+$/.test(currentGuess)) {
+      alert(`Please enter a valid ${gameState.difficulty}-digit number!`);
       return;
     }
 
@@ -113,6 +146,10 @@ const StandaloneCowsAndBulls: React.FC = () => {
     }));
     
     setCurrentGuess('');
+    
+    if (isWon) {
+      setGameMode('gameOver');
+    }
   };
 
   // Use a hint
@@ -134,7 +171,7 @@ const StandaloneCowsAndBulls: React.FC = () => {
         hint = `The sum of all digits is ${secret.split('').reduce((sum, digit) => sum + parseInt(digit), 0)}`;
         break;
       case 2:
-        hint = `The last digit is ${secret[3]}`;
+        hint = `The last digit is ${secret[secret.length - 1]}`;
         break;
     }
     
@@ -144,6 +181,34 @@ const StandaloneCowsAndBulls: React.FC = () => {
       ...prev,
       hintsUsed: prev.hintsUsed + 1,
     }));
+  };
+
+  // Record player score
+  const recordPlayerScore = (playerName: string) => {
+    const stats = getGameStats();
+    if (!stats) return;
+
+    const existingPlayer = players.find(p => p.name === playerName);
+    const newScore: PlayerScore = {
+      name: playerName,
+      gamesWon: (existingPlayer?.gamesWon || 0) + 1,
+      totalAttempts: (existingPlayer?.totalAttempts || 0) + stats.attempts,
+      bestAttempts: existingPlayer ? Math.min(existingPlayer.bestAttempts, stats.attempts) : stats.attempts,
+      averageAttempts: 0, // Will be calculated below
+      totalTime: (existingPlayer?.totalTime || 0) + stats.duration,
+      bestTime: existingPlayer ? Math.min(existingPlayer.bestTime, stats.duration) : stats.duration,
+    };
+
+    // Calculate average attempts
+    newScore.averageAttempts = Math.round(newScore.totalAttempts / newScore.gamesWon);
+
+    const updatedPlayers = existingPlayer 
+      ? players.map(p => p.name === playerName ? newScore : p)
+      : [...players, newScore];
+
+    savePlayers(updatedPlayers);
+    setCurrentPlayer('');
+    setShowPlayerInput(false);
   };
 
   // Calculate game statistics
@@ -158,38 +223,258 @@ const StandaloneCowsAndBulls: React.FC = () => {
     return {
       attempts: gameState.attempts.length,
       time: `${minutes}:${seconds.toString().padStart(2, '0')}`,
+      duration, // in seconds
       hintsUsed: gameState.hintsUsed,
     };
   };
 
-  // Initialize game on component mount
-  useEffect(() => {
-    startNewGame();
-  }, []);
+  // Reset all scores
+  const resetScores = () => {
+    if (confirm('Are you sure you want to reset all player scores?')) {
+      setPlayers([]);
+      localStorage.removeItem('cowsAndBullsPlayers');
+    }
+  };
 
   const stats = getGameStats();
 
+  // Game Menu
+  if (gameMode === 'menu') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
+            <h1 className="text-5xl font-bold text-indigo-600 mb-4">
+              🐄 Cows & Bulls 🐂
+            </h1>
+            <p className="text-xl text-gray-600 mb-8">
+              Choose your difficulty level and start playing!
+            </p>
+
+            {/* Difficulty Selection */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <button
+                onClick={() => startNewGame(2)}
+                className="bg-green-500 hover:bg-green-600 text-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+              >
+                <div className="text-3xl mb-2">🟢</div>
+                <h3 className="text-xl font-bold mb-2">Easy</h3>
+                <p className="text-sm">2 Digits</p>
+                <p className="text-xs text-green-100 mt-2">Perfect for kids 6-7 years!</p>
+              </button>
+
+              <button
+                onClick={() => startNewGame(3)}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+              >
+                <div className="text-3xl mb-2">🟡</div>
+                <h3 className="text-xl font-bold mb-2">Medium</h3>
+                <p className="text-sm">3 Digits</p>
+                <p className="text-xs text-yellow-100 mt-2">Great for beginners!</p>
+              </button>
+
+              <button
+                onClick={() => startNewGame(4)}
+                className="bg-red-500 hover:bg-red-600 text-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+              >
+                <div className="text-3xl mb-2">🔴</div>
+                <h3 className="text-xl font-bold mb-2">Hard</h3>
+                <p className="text-sm">4 Digits</p>
+                <p className="text-xs text-red-100 mt-2">Challenge yourself!</p>
+              </button>
+            </div>
+
+            {/* Game Controls */}
+            <div className="flex flex-wrap gap-4 justify-center">
+              <button
+                onClick={() => setShowScores(true)}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+              >
+                🏆 View Scores
+              </button>
+              <button
+                onClick={() => setShowRules(true)}
+                className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+              >
+                📖 Rules
+              </button>
+            </div>
+
+            {/* Rules Modal */}
+            {showRules && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl p-8 max-w-md max-h-[80vh] overflow-y-auto">
+                  <h3 className="text-2xl font-bold text-blue-800 mb-4">How to Play:</h3>
+                  <ul className="text-blue-700 text-sm space-y-2 mb-6">
+                    <li>• <strong>Bulls:</strong> Correct digit in correct position</li>
+                    <li>• <strong>Cows:</strong> Correct digit in wrong position</li>
+                    <li>• Each digit appears only once in the number</li>
+                    <li>• First digit cannot be 0</li>
+                    <li>• Use hints wisely - limited per game!</li>
+                    <li>• <strong>Easy:</strong> 2 digits, <strong>Medium:</strong> 3 digits, <strong>Hard:</strong> 4 digits</li>
+                  </ul>
+                  <button
+                    onClick={() => setShowRules(false)}
+                    className="w-full bg-blue-500 text-white py-2 rounded-lg font-semibold hover:bg-blue-600 transition-colors"
+                  >
+                    Got it!
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Scores Modal */}
+            {showScores && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl p-8 max-w-4xl max-h-[80vh] overflow-y-auto">
+                  <h3 className="text-2xl font-bold text-blue-800 mb-4">🏆 Player Scores</h3>
+                  
+                  {players.length === 0 ? (
+                    <p className="text-gray-600 text-center py-8">No games played yet. Start playing to see scores!</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {players.map((player, index) => (
+                        <div key={index} className="bg-gray-50 rounded-lg p-4">
+                          <h4 className="font-bold text-lg text-indigo-600 mb-2">{player.name}</h4>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="font-semibold">Games Won:</span> {player.gamesWon}
+                            </div>
+                            <div>
+                              <span className="font-semibold">Best Attempts:</span> {player.bestAttempts}
+                            </div>
+                            <div>
+                              <span className="font-semibold">Avg Attempts:</span> {player.averageAttempts}
+                            </div>
+                            <div>
+                              <span className="font-semibold">Best Time:</span> {Math.floor(player.bestTime / 60)}:{(player.bestTime % 60).toString().padStart(2, '0')}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-4 mt-6">
+                    <button
+                      onClick={resetScores}
+                      className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                    >
+                      🗑️ Reset Scores
+                    </button>
+                    <button
+                      onClick={() => setShowScores(false)}
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Game Over Screen
+  if (gameMode === 'gameOver') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
+            <h1 className="text-4xl font-bold text-green-600 mb-4">🎉 Congratulations!</h1>
+            <p className="text-xl text-gray-700 mb-6">
+              You guessed the {gameState.difficulty}-digit number in {stats?.attempts} attempts!
+            </p>
+            <p className="text-lg text-gray-600 mb-6">Time: {stats?.time}</p>
+
+            {/* Player Name Input */}
+            {showPlayerInput ? (
+              <div className="mb-6">
+                <label className="block text-gray-700 font-semibold mb-2">Enter your name to save your score:</label>
+                <div className="flex gap-2 justify-center">
+                  <input
+                    type="text"
+                    value={currentPlayer}
+                    onChange={(e) => setCurrentPlayer(e.target.value)}
+                    placeholder="Your name"
+                    className="px-4 py-2 border-2 border-indigo-300 rounded-lg focus:border-indigo-500 focus:outline-none"
+                    maxLength={20}
+                  />
+                  <button
+                    onClick={() => recordPlayerScore(currentPlayer)}
+                    disabled={!currentPlayer.trim()}
+                    className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
+                  >
+                    Save Score
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowPlayerInput(true)}
+                className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors mb-6"
+              >
+                🏆 Save My Score
+              </button>
+            )}
+
+            {/* Game Controls */}
+            <div className="flex flex-wrap gap-4 justify-center">
+              <button
+                onClick={() => startNewGame(gameState.difficulty)}
+                className="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+              >
+                🎮 Play Again ({gameState.difficulty} digits)
+              </button>
+              <button
+                onClick={() => setGameMode('menu')}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+              >
+                🏠 Main Menu
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main Game Screen
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          <h1 className="text-4xl font-bold text-center text-indigo-600 mb-2">
-            🐄 Cows & Bulls 🐂
-          </h1>
-          <p className="text-center text-gray-600 mb-6">
-            Guess the 4-digit number with unique digits!
-          </p>
+          <div className="text-center mb-6">
+            <h1 className="text-4xl font-bold text-indigo-600 mb-2">
+              🐄 Cows & Bulls 🐂
+            </h1>
+            <p className="text-gray-600 mb-2">
+              Guess the {gameState.difficulty}-digit number with unique digits!
+            </p>
+            <div className="text-sm text-indigo-500">
+              Difficulty: {gameState.difficulty === 2 ? '🟢 Easy' : gameState.difficulty === 3 ? '🟡 Medium' : '🔴 Hard'}
+            </div>
+          </div>
 
           {/* Game Controls */}
           <div className="flex flex-wrap gap-4 justify-center mb-6">
             <button
-              onClick={startNewGame}
+              onClick={() => setGameMode('menu')}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+            >
+              🏠 Menu
+            </button>
+            <button
+              onClick={() => startNewGame(gameState.difficulty)}
               className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
             >
               🎮 New Game
             </button>
             <button
-              onClick={() => setShowRules(!showRules)}
+              onClick={() => setShowRules(true)}
               className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
             >
               📖 Rules
@@ -207,53 +492,49 @@ const StandaloneCowsAndBulls: React.FC = () => {
             </button>
           </div>
 
-          {/* Rules */}
+          {/* Rules Modal */}
           {showRules && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <h3 className="font-semibold text-blue-800 mb-2">How to Play:</h3>
-              <ul className="text-blue-700 text-sm space-y-1">
-                <li>• <strong>Bulls:</strong> Correct digit in correct position</li>
-                <li>• <strong>Cows:</strong> Correct digit in wrong position</li>
-                <li>• Each digit appears only once in the number</li>
-                <li>• First digit cannot be 0</li>
-                <li>• Use hints wisely - you only have 3!</li>
-              </ul>
-            </div>
-          )}
-
-          {/* Game Status */}
-          {gameState.gameWon && (
-            <div className="bg-green-100 border border-green-200 rounded-lg p-4 mb-6 text-center">
-              <h2 className="text-2xl font-bold text-green-800 mb-2">🎉 Congratulations!</h2>
-              <p className="text-green-700">
-                You guessed the number in {stats?.attempts} attempts!
-              </p>
-              <p className="text-green-700">Time: {stats?.time}</p>
-            </div>
-          )}
-
-          {/* Input Section */}
-          {!gameState.gameOver && (
-            <div className="bg-gray-50 rounded-lg p-6 mb-6">
-              <div className="flex gap-4 items-center justify-center">
-                <input
-                  type="text"
-                  value={currentGuess}
-                  onChange={(e) => setCurrentGuess(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="Enter 4 digits"
-                  className="text-2xl text-center font-mono w-32 h-12 border-2 border-indigo-300 rounded-lg focus:border-indigo-500 focus:outline-none"
-                  maxLength={4}
-                />
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl p-8 max-w-md max-h-[80vh] overflow-y-auto">
+                <h3 className="text-2xl font-bold text-blue-800 mb-4">How to Play:</h3>
+                <ul className="text-blue-700 text-sm space-y-2 mb-6">
+                  <li>• <strong>Bulls:</strong> Correct digit in correct position</li>
+                  <li>• <strong>Cows:</strong> Correct digit in wrong position</li>
+                  <li>• Each digit appears only once in the number</li>
+                  <li>• First digit cannot be 0</li>
+                  <li>• Use hints wisely - you have {gameState.maxHints}!</li>
+                  <li>• <strong>Current Difficulty:</strong> {gameState.difficulty} digits</li>
+                </ul>
                 <button
-                  onClick={submitGuess}
-                  disabled={currentGuess.length !== 4}
-                  className="bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-300 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                  onClick={() => setShowRules(false)}
+                  className="w-full bg-blue-500 text-white py-2 rounded-lg font-semibold hover:bg-blue-600 transition-colors"
                 >
-                  Guess!
+                  Got it!
                 </button>
               </div>
             </div>
           )}
+
+          {/* Input Section */}
+          <div className="bg-gray-50 rounded-lg p-6 mb-6">
+            <div className="flex gap-4 items-center justify-center">
+              <input
+                type="text"
+                value={currentGuess}
+                onChange={(e) => setCurrentGuess(e.target.value.replace(/\D/g, '').slice(0, gameState.difficulty))}
+                placeholder={`Enter ${gameState.difficulty} digits`}
+                className="text-2xl text-center font-mono w-32 h-12 border-2 border-indigo-300 rounded-lg focus:border-indigo-500 focus:outline-none"
+                maxLength={gameState.difficulty}
+              />
+              <button
+                onClick={submitGuess}
+                disabled={currentGuess.length !== gameState.difficulty}
+                className="bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-300 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+              >
+                Guess!
+              </button>
+            </div>
+          </div>
 
           {/* Game Statistics */}
           {stats && (

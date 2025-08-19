@@ -1,5 +1,5 @@
 import StandaloneCowsAndBulls from '@/components/StandaloneCowsAndBulls';
 
-export default function CowsAndBullsPage() {
+export default function StandaloneGamePage() {
   return <StandaloneCowsAndBulls />;
 } 
